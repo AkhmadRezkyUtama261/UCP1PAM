@@ -1,8 +1,8 @@
 package com.example.ucp1.ui.view
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
@@ -22,6 +21,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -30,8 +31,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,18 +52,83 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ucp1.R
 import com.example.ucp1.model.TravelPlan
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+/**
+ * Fungsi pembantu: mengkonversi milisecond (Long) menjadi String tanggal format dd/MM/yyyy
+ */
+fun Long.toFormattedDate(): String {
+    val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    return sdf.format(Date(this))
+}
+
+/**
+ * Composable Date Picker Field:
+ * Menampilkan OutlinedTextField read-only dengan ikon kalender.
+ * Ketika diklik, membuka DatePickerDialog dari Material3.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DatePickerField(
+    label: String,
+    selectedDate: String,
+    onDateSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState()
+
+    // Dialog Kalender Material3
+    if (showDialog) {
+        DatePickerDialog(
+            onDismissRequest = { showDialog = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            onDateSelected(millis.toFormattedDate())
+                        }
+                        showDialog = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("Batal")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    // Field tampilan tanggal yang dipilih (read-only, klik buka dialog)
+    OutlinedTextField(
+        value = selectedDate,
+        onValueChange = {},
+        label = { Text(label) },
+        placeholder = { Text("dd/MM/yyyy") },
+        readOnly = true,
+        singleLine = true,
+        shape = RoundedCornerShape(10.dp),
+        trailingIcon = {
+            Text(
+                text = "📅",
+                fontSize = 18.sp,
+                modifier = Modifier.clickable { showDialog = true }
+            )
+        },
+        modifier = modifier.clickable { showDialog = true }
+    )
+}
 
 /**
  * Halaman Utama (Screen 1):
- * Menampilkan:
- * 1. Bagian profil pengguna (foto bulat - tidak diparsing, nama, alamat).
- * 2. Garis pembatas horizontal.
- * 3. Formulir perencanaan perjalanan ("Plan your adventure"):
- *    - origin (kota asal keberangkatan)
- *    - departure (tanggal keberangkatan)
- *    - arrival (tanggal kedatangan)
- *    - choose transport (bus, ship, train, plane) - single selection
- * 4. Tombol Submit dengan validasi isian.
+ * Departure & Arrival menggunakan DatePicker (Material3 DatePickerDialog).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,18 +136,12 @@ fun PlanYourAdventureScreen(
     onSubmit: (TravelPlan) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // -------------------------------------------------------------
-    // STATE MANAGEMENT MENGGUNAKAN JETPACK COMPOSE
-    // Setiap perubahan nilai input akan langsung direfleksikan ke UI
-    // -------------------------------------------------------------
     var nama by remember { mutableStateOf("") }
     var alamat by remember { mutableStateOf("") }
     var origin by remember { mutableStateOf("") }
     var departure by remember { mutableStateOf("") }
     var arrival by remember { mutableStateOf("") }
     var selectedTransport by remember { mutableStateOf("") }
-
-    // State untuk validasi error
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val transportOptions = listOf("Bus", "Ship", "Train", "Plane")
@@ -111,9 +173,8 @@ fun PlanYourAdventureScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // ---------------------------------------------------------
-            // 1. BAGIAN PROFIL PENGGUNA (SESUAI SKETSA GAMBAR)
+            // 1. BAGIAN PROFIL PENGGUNA
             // ---------------------------------------------------------
-            // Foto Profil Berbentuk Lingkaran (image - tidak diparsing)
             Box(
                 modifier = Modifier
                     .size(90.dp)
@@ -131,7 +192,6 @@ fun PlanYourAdventureScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Input / Display: Nama Pengguna
             OutlinedTextField(
                 value = nama,
                 onValueChange = {
@@ -147,7 +207,6 @@ fun PlanYourAdventureScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Input / Display: Alamat / Lokasi Tempat Tinggal
             OutlinedTextField(
                 value = alamat,
                 onValueChange = {
@@ -161,7 +220,6 @@ fun PlanYourAdventureScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Garis Pembatas Horizontal (sesuai sketsa garis hitam pemisah)
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 18.dp),
                 thickness = 1.5.dp,
@@ -182,7 +240,6 @@ fun PlanYourAdventureScreen(
                 textAlign = TextAlign.Start
             )
 
-            // Input: Origin (Kota Asal Keberangkatan)
             OutlinedTextField(
                 value = origin,
                 onValueChange = {
@@ -198,34 +255,30 @@ fun PlanYourAdventureScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Input: Tanggal Departure & Arrival berdampingan (Row)
+            // ---------------------------------------------------------
+            // DATE PICKER untuk Departure & Arrival (berdampingan)
+            // ---------------------------------------------------------
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
-                    value = departure,
-                    onValueChange = {
+                DatePickerField(
+                    label = "Departure",
+                    selectedDate = departure,
+                    onDateSelected = {
                         departure = it
                         errorMessage = null
                     },
-                    label = { Text("Departure") },
-                    placeholder = { Text("Tgl Keberangkatan") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.weight(1f)
                 )
 
-                OutlinedTextField(
-                    value = arrival,
-                    onValueChange = {
+                DatePickerField(
+                    label = "Arrival",
+                    selectedDate = arrival,
+                    onDateSelected = {
                         arrival = it
                         errorMessage = null
                     },
-                    label = { Text("Arrival") },
-                    placeholder = { Text("Tgl Kedatangan") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -233,8 +286,7 @@ fun PlanYourAdventureScreen(
             Spacer(modifier = Modifier.height(14.dp))
 
             // ---------------------------------------------------------
-            // 3. SELEKSI TRANSPORTASI ("choose transport")
-            // Sesuai sketsa: Kotak berbingkai dengan judul dan pilihan transportasi
+            // 3. SELEKSI TRANSPORTASI
             // ---------------------------------------------------------
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -301,7 +353,7 @@ fun PlanYourAdventureScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // ---------------------------------------------------------
-            // 4. PESAN ERROR VALIDASI (JIKA ADA DATA KOSONG)
+            // 4. PESAN ERROR VALIDASI
             // ---------------------------------------------------------
             if (errorMessage != null) {
                 Text(
@@ -321,7 +373,6 @@ fun PlanYourAdventureScreen(
             // ---------------------------------------------------------
             Button(
                 onClick = {
-                    // Validasi sederhana: memastikan semua data telah diisi
                     when {
                         nama.isBlank() -> {
                             errorMessage = "Nama pengguna tidak boleh kosong!"
@@ -333,10 +384,10 @@ fun PlanYourAdventureScreen(
                             errorMessage = "Kota asal (origin) wajib diisi!"
                         }
                         departure.isBlank() -> {
-                            errorMessage = "Tanggal keberangkatan (departure) wajib diisi!"
+                            errorMessage = "Tanggal keberangkatan (departure) wajib dipilih!"
                         }
                         arrival.isBlank() -> {
-                            errorMessage = "Tanggal kedatangan (arrival) wajib diisi!"
+                            errorMessage = "Tanggal kedatangan (arrival) wajib dipilih!"
                         }
                         selectedTransport.isBlank() -> {
                             errorMessage = "Silakan pilih salah satu jenis transportasi!"
